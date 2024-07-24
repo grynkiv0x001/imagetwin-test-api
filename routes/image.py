@@ -5,11 +5,14 @@ from db import db
 from models.image import Image
 from models.box import Box
 
+from helpers import create_box
+
 image_bp = Blueprint('image', __name__)
 
 @image_bp.route('/save', methods=['POST'])
 def save_image():
     data = request.get_json()
+
     image_value = data.get('image')
     image_origin_value = data.get('origin_image')
     image_id = data.get('id')
@@ -23,39 +26,29 @@ def save_image():
         if image:
             image.value = image_value
             Box.query.filter_by(image_id=image_id).delete()
-            for box in boxes:
-                annotation = Box(
-                    x=box['x'],
-                    y=box['y'],
-                    width=box['width'],
-                    height=box['height'],
-                    image_id=image_id
-                )
-                db.session.add(annotation)
+
+            new_boxes = [create_box(box, image_id) for box in boxes]
+            db.session.add_all(new_boxes)
             db.session.commit()
-            return jsonify({"message": "Image and boxes updated", "id": image.id}), 200
+
+            return jsonify({"message": "Image updated", "id": image.id}), 200
         else:
             return jsonify({"error": "Image not found"}), 404
     else:
         new_image = Image(value=image_value, origin_value=image_origin_value)
         db.session.add(new_image)
         db.session.commit()
-        for box in boxes:
-            annotation = Box(
-                x=box['x'],
-                y=box['y'],
-                width=box['width'],
-                height=box['height'],
-                image_id=new_image.id
-            )
-            db.session.add(annotation)
-        db.session.commit()
-        return jsonify({"message": "Image and boxes saved", "id": new_image.id}), 201
 
+        new_boxes = [create_box(box, new_image.id) for box in boxes]
+        db.session.add_all(new_boxes)
+        db.session.commit()
+
+        return jsonify({"message": "Image saved", "id": new_image.id}), 201
 
 @image_bp.route('/load/<int:image_id>', methods=['GET'])
 def load_image(image_id):
     image = Image.query.get(image_id)
+
     if not image:
         return jsonify({"error": "Image not found"}), 404
 
