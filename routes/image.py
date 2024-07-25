@@ -5,7 +5,7 @@ from db import db
 from models.image import Image
 from models.box import Box
 
-from helpers import create_box
+from helpers.create_box import create_box
 
 image_bp = Blueprint('image', __name__)
 
